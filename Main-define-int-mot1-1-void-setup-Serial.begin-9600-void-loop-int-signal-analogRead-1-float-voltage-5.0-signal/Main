@@ -1,0 +1,20 @@
+#define int mot1 = 1;
+#define int mot2 = 2;
+#define int mot3 = 3;
+#define int mot4 = 4;
+
+void setup() 
+{
+  Serial.begin(9600);
+  pinMode(mot1, OUTPUT);
+  pinMode(mot1, OUTPUT);
+  pinMode(mot1, OUTPUT);
+
+}
+
+void loop() {
+  int signal = analogRead(1);
+  float voltage = 5.0*signal/1023;
+  Serial.println(voltage);
+
+}
