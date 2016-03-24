@@ -2,19 +2,22 @@
 #define int mot2 = 2;
 #define int mot3 = 3;
 #define int mot4 = 4;
-
+#define int forwardLocPWM = 70;
 void setup() 
 {
   Serial.begin(9600);
   pinMode(mot1, OUTPUT);
-  pinMode(mot1, OUTPUT);
-  pinMode(mot1, OUTPUT);
-
+  pinMode(mot2, OUTPUT);
+  pinMode(mot3, OUTPUT);
+  pinMode(mot4, OUTPUT);
 }
 
-void loop() {
-  int signal = analogRead(1);
-  float voltage = 5.0*signal/1023;
-  Serial.println(voltage);
+void loop() 
+{
+  //Milestone 5 Test 1: Moving forward:
+  analogWrite(mot1, forwardLocPWM);
+  analogWrite(mot2, forwardLocPWM);
+  analogWrite(mot3, forwardLocPWM);
+  analogWrite(mot4, forwardLocPWM);
 
 }
