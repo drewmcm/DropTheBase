@@ -2,6 +2,8 @@
 #define int mot2 = 2;
 #define int mot3 = 3;
 #define int mot4 = 4;
+#define int xCoords[2];
+#define int yCoords[2];
 
 void setup() 
 {
@@ -9,12 +11,26 @@ void setup()
   pinMode(mot1, OUTPUT);
   pinMode(mot1, OUTPUT);
   pinMode(mot1, OUTPUT);
+  
+}
+
+void loop()
+{
+  
 
 }
 
-void loop() {
-  int signal = analogRead(1);
-  float voltage = 5.0*signal/1023;
-  Serial.println(voltage);
-
+void setInitialCoordinates()
+{
+  xCoords[0] = //get x from the RF
+  yCoords[0] = 1400;
+  xCoords[1] = 2200;
+  yCoords[1] = 1400;
 }
+
+void pushWaypoint(int x, int y)
+{
+  int length = sizeof(xCoords)/sizeOf(int);
+  int xHold[1+length];
+  int yHold[1+length];
+  for(int i = o; i < length
