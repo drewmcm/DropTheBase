@@ -33,4 +33,18 @@ void pushWaypoint(int x, int y)
   int length = sizeof(xCoords)/sizeOf(int);
   int xHold[1+length];
   int yHold[1+length];
-  for(int i = o; i < length
+  for(int i = o; i < length; i = i +1)
+  {
+    xHold[i] = xCoords[i];
+    yHold[i] = yCoords[i];
+  }
+  xHold[length] = x;
+  yHold[length] = y;
+  xCoords = xHold;
+  yCoords = yHold;
+}
+
+
+
+
+
