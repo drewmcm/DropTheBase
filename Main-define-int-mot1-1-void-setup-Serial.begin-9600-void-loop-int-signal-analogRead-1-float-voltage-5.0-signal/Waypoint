@@ -1,0 +1,18 @@
+#define int x;
+#define int y;
+
+public Waypoint(int xIn, int yIn)
+{
+  x = xIn;
+  y = yIn;
+}
+
+public int getX()
+{
+  return x;
+}
+
+public int getY()
+{
+  return y;
+}
