@@ -1,9 +1,9 @@
-#define int mot1 = 1;
-#define int mot2 = 2;
-#define int mot3 = 3;
-#define int mot4 = 4;
-#define int xCoords[2];
-#define int yCoords[2];
+const int mot1 = 1;
+const int mot2 = 2;
+const int mot3 = 3;
+const int mot4 = 4;
+int xCoords[2];
+int yCoords[2];
 
 void setup() 
 {
@@ -11,6 +11,8 @@ void setup()
   pinMode(mot1, OUTPUT);
   pinMode(mot1, OUTPUT);
   pinMode(mot1, OUTPUT);
+  xCoords = {0,0};
+  yCoords = {0,0};
   
 }
 
@@ -44,7 +46,17 @@ void pushWaypoint(int x, int y)
   yCoords = yHold;
 }
 
-
-
-
+void popWaypoint()
+{
+  int length = sizeof(xCoords)/sizeof(int);
+  int xHold[length-1];
+  int yHold[length-1];
+  for(int i = 0; i < length -1; i++)
+  {
+    xHold[i] = XCoords[i];
+    yHold[i] = yCoords[i];
+  }
+  xCoords = xHold;
+  yCoords = yHold;
+}
 
