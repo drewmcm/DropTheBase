@@ -1,62 +1,134 @@
+#include <SoftwareSerial.h>
+#include "enes100.h"
+
+
+SoftwareSerial mySerial(8, 9); //RX is pin 8, TX is pin 9
+enes100::RfClient<SoftwareSerial> rf(&mySerial); 
+enes100::Marker marker;
+int markerNumber=100;
+
 const int mot1 = 1;
 const int mot2 = 2;
 const int mot3 = 3;
 const int mot4 = 4;
-int xCoords[2];
-int yCoords[2];
+const int leftDir = 12;
+const int rightDir = 13;
+const int finalX = 2200;
+const int finalY = 1400;
+const int coordMargin = 20;
+const float thetaMargin = .1;
+float thetaDesired;
+int nextX;
+int nextY;
+int mode;
 
 void setup() 
 {
+  mySerial.begin(9600);
   Serial.begin(9600);
+
+  pinMode(8, INPUT); //RX for RF
+  pinMode(9, OUTPUT); //TX for RF
+  rf.resetServer();
+  rf.sendMessage("\nTeam Drop the Base is Connected\n"); //sent to mission control
+  Serial.println("Team Drop the Base is Connected"); //sent to student's serial 
   pinMode(mot1, OUTPUT);
-  pinMode(mot1, OUTPUT);
-  pinMode(mot1, OUTPUT);
-  xCoords = {0,0};
-  yCoords = {0,0};
+  pinMode(mot2, OUTPUT);
+  pinMode(mot3, OUTPUT);
+  pinMode(mot4, OUTPUT);
+  pinMode(leftDir, OUTPUT);
+  pinMode(rightDir, OUTPUT);
+  mode = 1;
+  thetaDesired = 0;
   
+  calculateInitialRoute();
 }
 
 void loop()
 {
-  
-
-}
-
-void setInitialCoordinates()
-{
-  xCoords[0] = //get x from the RF
-  yCoords[0] = 1400;
-  xCoords[1] = 2200;
-  yCoords[1] = 1400;
-}
-
-void pushWaypoint(int x, int y)
-{
-  int length = sizeof(xCoords)/sizeOf(int);
-  int xHold[1+length];
-  int yHold[1+length];
-  for(int i = o; i < length; i = i +1)
+  int something = mode;
+  switch(something)
   {
-    xHold[i] = xCoords[i];
-    yHold[i] = yCoords[i];
+    case 1:
+      goToInitialPoint();
+      break;
+    case 2:
+      break;
+      
   }
-  xHold[length] = x;
-  yHold[length] = y;
-  xCoords = xHold;
-  yCoords = yHold;
 }
 
-void popWaypoint()
+void calculateInitialRoute()
 {
-  int length = sizeof(xCoords)/sizeof(int);
-  int xHold[length-1];
-  int yHold[length-1];
-  for(int i = 0; i < length -1; i++)
-  {
-    xHold[i] = XCoords[i];
-    yHold[i] = yCoords[i];
-  }
-  xCoords = xHold;
-  yCoords = yHold;
+  nextX = marker.x;
+  nextY = finalY;
 }
+
+void goToInitialPoint()
+{
+  if(marker.theta - thetaDesired < thetaMargin)
+      {
+        turnLeft();
+      }
+      else if(marker.theta - thetaDesired > thetaMargin)
+      {
+        turnRight();
+      }
+      else if(marker.y - nextY < coordMargin)
+      {
+        moveForward;
+      }
+      else if(marker.y - nextY > coordMargin)
+      {
+        moveBackward;
+      }
+      else
+      {
+        mode = 2;
+      }
+}
+
+void turnLeft()
+{
+  digitalWrite(leftDir, LOW);
+  digitalWrite(rightDir, HIGH);
+}
+
+void turnRight()
+{
+  digitalWrite(leftDir, HIGH);
+  digitalWrite(rightDir, LOW);
+}
+
+void moveForward()
+{
+  digitalWrite(leftDir, HIGH);
+  digitalWrite(rightDir, HIGH);
+}
+
+void moveBackward()
+{
+  digitalWrite(leftDir, LOW);
+  digitalWrite(rightDir, LOW);
+}
+
+void stopLocomotion()
+{
+  analogWrite(mot1, 0);
+  analogWrite(mot2, 0);
+  analogWrite(mot3, 0);
+  analogWrite(mot4, 0);
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
