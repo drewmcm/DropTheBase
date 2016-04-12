@@ -1,5 +1,6 @@
 #include <SoftwareSerial.h>
 #include "enes100.h"
+#define SensorPin 0
 
 
 SoftwareSerial mySerial(8, 9); //RX is pin 8, TX is pin 9
@@ -13,11 +14,18 @@ const int mot3 = 3;
 const int mot4 = 4;
 const int leftDir = 12;
 const int rightDir = 13;
+const int trig = 10;
+const int echo = 11;
+const int winch = 14;
 const int finalX = 2200;
 const int finalY = 1400;
-const int coordMargin = 20;
+const int coordMargin = 40;
 const float thetaMargin = .1;
 float thetaDesired;
+unsigned long int avgValue;
+float b;
+int buf[10],temp;
+
 int nextX;
 int nextY;
 int mode;
@@ -27,6 +35,7 @@ void setup()
   mySerial.begin(9600);
   Serial.begin(9600);
 
+  pinMode(0,INPUT);
   pinMode(8, INPUT); //RX for RF
   pinMode(9, OUTPUT); //TX for RF
   rf.resetServer();
@@ -38,6 +47,9 @@ void setup()
   pinMode(mot4, OUTPUT);
   pinMode(leftDir, OUTPUT);
   pinMode(rightDir, OUTPUT);
+  pinMode(trig, OUTPUT);
+  pinMode(echo, INPUT);
+  pinMode(winch, OUTPUT);
   mode = 1;
   thetaDesired = 0;
   
@@ -50,9 +62,18 @@ void loop()
   switch(something)
   {
     case 1:
+      rf.sendMessage("Going to the intitial point");
       goToInitialPoint();
       break;
     case 2:
+      rf.sendMessage("Going towards the pool");
+      break;
+
+    case 98:
+      avoidObstacle();
+    case 99:
+      rf.sendMessage("End Mission.");
+      stopLocomotion();
       break;
       
   }
@@ -66,50 +87,148 @@ void calculateInitialRoute()
 
 void goToInitialPoint()
 {
-  if(marker.theta - thetaDesired < thetaMargin)
+  if(rf.receiveMarker(&marker, markerNumber))
+  {
+    //Have OSV turn to theta 0
+    if(abs(marker.theta - thetaDesired) > thetaMargin)
+    {
+      rf.sendMessage("Reading theta ");
+      rf.sendMessage(marker.theta);
+      rf.sendMessage(". Turning left...");
+      turnLeft();
+    }
+    else if(abs(marker.theta - thetaDesired) < thetaMargin)
+    {
+      rf.sendMessage("Reading theta ");
+      rf.sendMessage(marker.theta);
+      rf.sendMessage(". Turning right...");
+      turnRight();
+    }
+    else if(abs(marker.y - finalY) > coordMargin)
+    {
+      rf.sendMessage("Reading Y value ");
+      rf.sendMessage(marker.y);
+      rf.sendMessage(". Moving forward...");
+      moveForward();
+    }
+    else
+    {
+      rf.sendMessage("End initial point navigation");
+      setTurnRight();
+      mode = 2;
+    }
+  }
+}
+
+void moveToPool
+{
+  if(rf.receiveMarker(&marker, markerNumber))
+  {
+    if(abs(marker.theta - thetaDesired) > thetaMargin)
+    {
+      turnRight();
+    }
+    else if(abs(marker.x - finalX) > coordMargin)
+    {
+      if(ping() <25)
       {
-        turnLeft();
-      }
-      else if(marker.theta - thetaDesired > thetaMargin)
-      {
-        turnRight();
-      }
-      else if(marker.y - nextY < coordMargin)
-      {
-        moveForward;
-      }
-      else if(marker.y - nextY > coordMargin)
-      {
-        moveBackward;
+        //Enable obstacle avoidance
+        mode = 98;
       }
       else
       {
-        mode = 2;
+        moveForward();
       }
+    }
+    else
+    {
+      startPHMeasure();
+    }
+  }
+}
+
+void avoidObstacle()
+{
+  startPHMeasure():
+}
+
+void startPHMeasure()
+{
+  lowerPHProde();
+  delay(10000);
+  float ph = getPH();
+  rf.sendMessage("We are reading a pH of : ");
+  rf.sendMessage(ph);
+  mode = 99;
+}
+
+void lowerPHProbe()
+{
+  
+}
+
+void setTurnLeft()
+{
+  if(thetaDesired == -3.14)
+  {
+    thetaDesired = 1.27;
+  }
+  else
+  {
+    thetaDesired = thetaDesired - 1.27;
+  }
+}
+
+void setTurnRight()
+{
+  if(thetaDesired == 3.14)
+  {
+    thetaDesired = -1.27;
+  }
+  else
+  {
+    thetaDesired = thetaDesired + 1.27;
+  }
 }
 
 void turnLeft()
 {
   digitalWrite(leftDir, LOW);
   digitalWrite(rightDir, HIGH);
+  analogWrite(mot1, 100);
+  analogWrite(mot2, 100);
+  analogWrite(mot3, 100);
+  analogWrite(mot4, 100);
 }
 
 void turnRight()
 {
   digitalWrite(leftDir, HIGH);
   digitalWrite(rightDir, LOW);
+  analogWrite(mot1, 100);
+  analogWrite(mot2, 100);
+  analogWrite(mot3, 100);
+  analogWrite(mot4, 100);
 }
 
 void moveForward()
 {
   digitalWrite(leftDir, HIGH);
   digitalWrite(rightDir, HIGH);
+  analogWrite(mot1, 50);
+  analogWrite(mot2, 50);
+  analogWrite(mot3, 50);
+  analogWrite(mot4, 50);
 }
 
 void moveBackward()
 {
   digitalWrite(leftDir, LOW);
   digitalWrite(rightDir, LOW);
+  analogWrite(mot1, 50);
+  analogWrite(mot2, 50);
+  analogWrite(mot3, 50);
+  analogWrite(mot4, 50);
 }
 
 void stopLocomotion()
@@ -118,6 +237,53 @@ void stopLocomotion()
   analogWrite(mot2, 0);
   analogWrite(mot3, 0);
   analogWrite(mot4, 0);
+}
+
+long ping()
+{
+  pinMode(trig, OUTPUT);
+  digitalWrite(trig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(trig, LOW);
+  pinMode(echo,INPUT);
+  duration = pulseIn(echo, HIGH);
+  return microsecondsToCentimeters(duration);
+}
+
+float getPH(){
+  for(int i=0; i<10; i++){
+    buf[i] = analogRead(SensorPin);
+    delay(10);
+  }
+  for(int i= 0; i<9; i++){
+    for(int j=i+1;j<10;j++){
+      if(buf[i]>buf[j]){
+        temp=buf[i];
+        buf[i]=buf[j];
+        buf[j]=temp;
+      }
+    }
+  }
+  avgValue = 0;
+  for(int i=2; i<8; i++)
+    avgValue+=buf[i];
+  float phValue = (float)avgValue*5.0/1024/6;
+  phValue = 3.5*phValue;
+  Serial.print("    ph:");
+  Serial.print(phValue,2);
+  Serial.print(" ");
+  return phValue;
+  delay(500);
+}
+
+long microsecondsToCentimeters(long microseconds)
+{
+// The speed of sound is 340 m/s or 29 microseconds per centimeter.
+// The ping travels out and back, so to find the distance of the
+// object we take half of the distance travelled.
+return microseconds / 29 / 2;
 }
 
 
