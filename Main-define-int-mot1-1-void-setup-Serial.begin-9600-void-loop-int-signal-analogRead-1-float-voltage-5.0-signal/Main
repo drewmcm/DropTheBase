@@ -3,24 +3,24 @@
 #define SensorPin 0
 
 
-SoftwareSerial mySerial(8, 9); //RX is pin 8, TX is pin 9
+SoftwareSerial mySerial(5, 6); //RX is pin 8, TX is pin 9
 enes100::RfClient<SoftwareSerial> rf(&mySerial); 
 enes100::Marker marker;
-int markerNumber=100;
+int markerNumber=104;
 
-const int mot1 = 1;
-const int mot2 = 2;
-const int mot3 = 3;
-const int mot4 = 4;
+const int mot1 = 10;
+const int mot2 = 10;
+const int mot3 = 11;
+const int mot4 = 11;
 const int leftDir = 12;
 const int rightDir = 13;
 const int trig = 10;
 const int echo = 11;
 const int winch = 14;
-const int finalX = 2200;
-const int finalY = 1400;
-const int coordMargin = 40;
-const float thetaMargin = .1;
+const float finalX = 2.2;
+const float finalY = 1.4;
+const float coordMargin = .04;
+const float thetaMargin = .3;
 float thetaDesired;
 unsigned long int avgValue;
 float b;
@@ -36,8 +36,8 @@ void setup()
   Serial.begin(9600);
 
   pinMode(0,INPUT);
-  pinMode(8, INPUT); //RX for RF
-  pinMode(9, OUTPUT); //TX for RF
+  pinMode(5, INPUT); //RX for RF
+  pinMode(6, OUTPUT); //TX for RF
   rf.resetServer();
   rf.sendMessage("\nTeam Drop the Base is Connected\n"); //sent to mission control
   Serial.println("Team Drop the Base is Connected"); //sent to student's serial 
@@ -53,118 +53,112 @@ void setup()
   mode = 1;
   thetaDesired = 0;
   
-  calculateInitialRoute();
+  calcInitialRoute();
 }
 
 void loop()
 {
-  int something = mode;
-  switch(something)
+  int hold = mode;
+  switch(hold)
   {
     case 1:
-      rf.sendMessage("Going to the intitial point");
       goToInitialPoint();
       break;
     case 2:
-      rf.sendMessage("Going towards the pool");
+      turnTowardsPool();
       break;
-
-    case 98:
-      avoidObstacle();
-    case 99:
-      rf.sendMessage("End Mission.");
+    case 3:
+      moveToPool();
+      break;
+    case 4:
       stopLocomotion();
       break;
       
   }
 }
 
-void calculateInitialRoute()
+void calcInitialRoute()
 {
-  nextX = marker.x;
-  nextY = finalY;
+  if(rf.receiveMarker(&marker, markerNumber))
+  {
+    if(marker.x < 1.8)
+    {
+      thetaDesired = 0;
+    }
+    else
+    {
+      thetaDesired = 3.14;
+    }
+  }
 }
 
 void goToInitialPoint()
 {
   if(rf.receiveMarker(&marker, markerNumber))
   {
-    //Have OSV turn to theta 0
-    if(abs(marker.theta - thetaDesired) > thetaMargin)
+    if(marker.theta + thetaMargin < thetaDesired)
     {
-      rf.sendMessage("Reading theta ");
-      rf.sendMessage(marker.theta);
-      rf.sendMessage(". Turning left...");
+        rf.sendMessage(marker.theta);
       turnLeft();
     }
-    else if(abs(marker.theta - thetaDesired) < thetaMargin)
+    else if(marker.theta - thetaMargin > thetaDesired)
     {
-      rf.sendMessage("Reading theta ");
-      rf.sendMessage(marker.theta);
-      rf.sendMessage(". Turning right...");
+        rf.sendMessage(marker.theta);
       turnRight();
     }
-    else if(abs(marker.y - finalY) > coordMargin)
-    {
-      rf.sendMessage("Reading Y value ");
-      rf.sendMessage(marker.y);
-      rf.sendMessage(". Moving forward...");
-      moveForward();
-    }
+     else if(marker.y + coordMargin < finalY && thetaDesired == 0)
+      {
+        rf.sendMessage(marker.y);
+        moveForward();
+      }
+ 
+     else if(marker.y - coordMargin > finalY && thetaDesired == 3.14)
+      {
+        moveForward();
+      }
     else
     {
-      rf.sendMessage("End initial point navigation");
-      setTurnRight();
+      thetaDesired = -1.57;
       mode = 2;
     }
   }
 }
 
-void moveToPool
+void turnTowardsPool()
 {
   if(rf.receiveMarker(&marker, markerNumber))
   {
-    if(abs(marker.theta - thetaDesired) > thetaMargin)
+    rf.sendMessage("Turning towards pool\n");
+    if(marker.theta + thetaMargin < thetaDesired)
+    {
+      turnLeft();
+    }
+    else if(marker.theta - thetaMargin > thetaDesired)
     {
       turnRight();
     }
-    else if(abs(marker.x - finalX) > coordMargin)
-    {
-      if(ping() <25)
-      {
-        //Enable obstacle avoidance
-        mode = 98;
-      }
-      else
-      {
-        moveForward();
-      }
-    }
     else
     {
-      startPHMeasure();
+      mode = 3;
     }
   }
 }
 
-void avoidObstacle()
+void moveToPool()
 {
-  startPHMeasure():
-}
-
-void startPHMeasure()
-{
-  lowerPHProde();
-  delay(10000);
-  float ph = getPH();
-  rf.sendMessage("We are reading a pH of : ");
-  rf.sendMessage(ph);
-  mode = 99;
-}
-
-void lowerPHProbe()
-{
-  
+    rf.sendMessage("\nMoving towards pool");
+  if(rf.receiveMarker(&marker, markerNumber))
+  {
+    if(marker.x + coordMargin < finalX)
+    {
+      rf.sendMessage(marker.x);
+      moveForward();
+    }
+    else
+    {
+      mode = 4;
+    }
+  }
 }
 
 void setTurnLeft()
@@ -190,6 +184,28 @@ void setTurnRight()
     thetaDesired = thetaDesired + 1.27;
   }
 }
+
+void avoidObstacle()
+{
+  startPHMeasure();
+}
+
+void startPHMeasure()
+{
+  
+  lowerPHProbe();
+  delay(10000);
+  float ph = getPH();
+  rf.sendMessage("We are reading a pH of : ");
+  rf.sendMessage(ph);
+  mode = 99;
+}
+
+void lowerPHProbe()
+{
+  
+}
+
 
 void turnLeft()
 {
@@ -248,7 +264,7 @@ long ping()
   delayMicroseconds(5);
   digitalWrite(trig, LOW);
   pinMode(echo,INPUT);
-  duration = pulseIn(echo, HIGH);
+  long duration = pulseIn(echo, HIGH);
   return microsecondsToCentimeters(duration);
 }
 
@@ -285,6 +301,7 @@ long microsecondsToCentimeters(long microseconds)
 // object we take half of the distance travelled.
 return microseconds / 29 / 2;
 }
+
 
 
 
