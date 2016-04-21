@@ -1,0 +1,301 @@
+#include <SoftwareSerial.h>
+#include "enes100.h"
+#define SensorPin 0
+
+//This version adds ultrasonic rangers and obstacle avoidance
+SoftwareSerial mySerial(5, 6); //RX is pin 8, TX is pin 9
+enes100::RfClient<SoftwareSerial> rf(&mySerial); 
+enes100::Marker marker;
+int markerNumber=106;
+
+//pins
+const int mot1 = 10;
+const int mot2 = 10;
+const int mot3 = 11;
+const int mot4 = 11;
+const int leftDir = 12;
+const int rightDir = 13;
+const int trig1 = 10;
+const int echo1 = 11;
+const int trig2 = 0;
+const int echo2 = 0;
+const int winch = 14;
+
+//constants and variables
+const float finalX = 2.2;
+const float finalY = 1.4;
+const float coordMargin = .04;
+const float thetaMargin = .3;
+const int straightPWM = 50;
+const int turnPWM = 100;
+const int adjustPWM = 20;
+const long obstaclePing = .1;
+const long approachDist = 2.0;
+int badPingCount;
+float thetaDesired;
+long detourX1 = 0;
+long detourX2 = 0;
+long detourX3 = 0;
+long detourY1 = 0;
+long detourY2 = 0;
+long detourY3 = 0;
+unsigned long int avgValue;
+float b;
+int buf[10],temp;
+int mode;
+
+void setup() 
+{
+  mySerial.begin(9600);
+  Serial.begin(9600);
+
+  pinMode(0,INPUT);
+  pinMode(5, INPUT); //RX for RF
+  pinMode(6, OUTPUT); //TX for RF
+  rf.resetServer();
+  rf.sendMessage("\nTeam Drop the Base is Connected\n"); //sent to mission control
+  Serial.println("Team Drop the Base is Connected"); //sent to student's serial 
+  pinMode(mot1, OUTPUT);
+  pinMode(mot2, OUTPUT);
+  pinMode(mot3, OUTPUT);
+  pinMode(mot4, OUTPUT);
+  pinMode(leftDir, OUTPUT);
+  pinMode(rightDir, OUTPUT);
+  pinMode(trig1, OUTPUT);
+  pinMode(echo1, INPUT);
+  pinMode(trig2, OUTPUT);
+  pinMode(echo2, INPUT);
+  pinMode(winch, OUTPUT);
+  mode = 1;
+  thetaDesired = 0;
+  badPingCount = 0;
+  
+  calcInitialRoute();
+}
+
+void loop()
+{
+  int hold = mode;
+  switch(hold)
+  {
+    case 1:
+      goToInitialPoint();
+      break;
+    case 2:
+      turnTowardsPool();
+      break;
+    case 3:
+      moveToPool();
+      break;
+    case 4:
+      stopLocomotion();
+      break;
+    case 99:
+      stopLocomotion();
+      break;
+     
+      
+  }
+}
+
+void calcInitialRoute()
+{
+  rf.sendMessage("\nCalculating initial route");
+  if(rf.receiveMarker(&marker, markerNumber))
+  {
+    if(marker.x < 1.8)
+    {
+      thetaDesired = 0;
+    }
+    else
+    {
+      thetaDesired = 3.14;
+    }
+  }
+}
+
+void goToInitialPoint()
+{
+  if(rf.receiveMarker(&marker, markerNumber))
+  {
+    if(marker.theta + thetaMargin < 0)
+    {
+      rf.sendMessage("\nTheta: ");
+      rf.sendMessage(marker.theta);
+      turnLeft();
+    }
+    else if(marker.theta - thetaMargin > 0)
+    {
+      rf.sendMessage("\nTheta: ");
+      rf.sendMessage(marker.theta);
+      turnRight();
+    }
+    else if(marker.y + coordMargin < finalY && thetaDesired == 0)
+    {
+      rf.sendMessage("\nY: ");
+      rf.sendMessage(marker.y);
+      moveForward();
+    }
+ 
+    else if(marker.y - coordMargin > finalY && thetaDesired == 3.14)
+    {
+      rf.sendMessage("\nY: ");
+       rf.sendMessage(marker.y);
+      moveBackward();
+    }
+    else
+    {
+      thetaDesired = -1.57;
+      rf.sendMessage("\nTurning towards pool");
+      mode = 2;
+    }
+  }
+}
+
+void turnTowardsPool()
+{
+  if(rf.receiveMarker(&marker, markerNumber))
+  {
+    if(marker.theta - thetaMargin > thetaDesired)
+    {
+      rf.sendMessage("\nTheta: ");
+      rf.sendMessage(marker.theta);
+      turnRight();
+    }
+    else if(marker.theta + thetaMargin < thetaDesired)
+    {
+      rf.sendMessage("\nTheta: ");
+      rf.sendMessage(marker.theta);
+      turnLeft();
+    }
+    else
+    {
+      rf.sendMessage("\nMoving towards pool");
+      mode = 3;
+    }
+  }
+}
+
+void moveToPool()
+{
+  if(rf.receiveMarker(&marker, markerNumber))
+  {
+      if(marker.x + coordMargin < approachDist)
+      {
+        rf.sendMessage(marker.x);
+        if(marker.y + coordMargin < finalY)
+        {
+          moveForwardAdjustLeft();
+        }
+        else if(marker.y - coordMargin > finalY)
+        {
+          moveForwardAdjustRight();
+        }
+        else
+        {
+         rf.sendMessage("\nX: ");
+         rf.sendMessage(marker.x);
+         rf.sendMessage("\nY: ");
+         rf.sendMessage(marker.y);
+          moveForward();
+        }
+      }
+      else
+      {
+        rf.sendMessage("\nReached final destination");
+        mode = 4;
+      }
+  }
+}
+
+void setTurnLeft()
+{
+  if(thetaDesired == 3.14)
+  {
+    thetaDesired = -1.27;
+  }
+  else
+  {
+    thetaDesired = thetaDesired + 1.27;
+  }
+}
+
+void setTurnRight()
+{
+  if(thetaDesired == -3.14)
+  {
+    thetaDesired = 1.27;
+  }
+  else
+  {
+    thetaDesired = thetaDesired - 1.27;
+  }
+}
+
+void turnLeft()
+{
+  digitalWrite(leftDir, LOW);
+  digitalWrite(rightDir, HIGH);
+  analogWrite(mot1, turnPWM);
+  analogWrite(mot2, turnPWM);
+  analogWrite(mot3, turnPWM);
+  analogWrite(mot4, turnPWM);
+}
+
+void turnRight()
+{
+  digitalWrite(leftDir, HIGH);
+  digitalWrite(rightDir, LOW);
+  analogWrite(mot1, turnPWM);
+  analogWrite(mot2, turnPWM);
+  analogWrite(mot3, turnPWM);
+  analogWrite(mot4, turnPWM);
+}
+
+void moveForward()
+{
+  digitalWrite(leftDir, HIGH);
+  digitalWrite(rightDir, HIGH);
+  analogWrite(mot1, straightPWM);
+  analogWrite(mot2, straightPWM);
+  analogWrite(mot3, straightPWM);
+  analogWrite(mot4, straightPWM);
+}
+
+void moveForwardAdjustLeft()
+{
+  digitalWrite(leftDir, HIGH);
+  digitalWrite(rightDir, HIGH);
+  analogWrite(mot1, straightPWM);
+  analogWrite(mot2, straightPWM);
+  analogWrite(mot3, (straightPWM + adjustPWM));
+  analogWrite(mot4, (straightPWM + adjustPWM));
+}
+
+void moveForwardAdjustRight()
+{
+  digitalWrite(leftDir, HIGH);
+  digitalWrite(rightDir, HIGH);
+  analogWrite(mot1, (straightPWM + adjustPWM));
+  analogWrite(mot2, (straightPWM + adjustPWM));
+  analogWrite(mot3, straightPWM);
+  analogWrite(mot4, straightPWM);
+}
+
+void moveBackward()
+{
+  digitalWrite(leftDir, LOW);
+  digitalWrite(rightDir, LOW);
+  analogWrite(mot1, straightPWM);
+  analogWrite(mot2, straightPWM);
+  analogWrite(mot3, straightPWM);
+  analogWrite(mot4, straightPWM);
+}
+
+void stopLocomotion()
+{
+  analogWrite(mot1, 0);
+  analogWrite(mot2, 0);
+  analogWrite(mot3, 0);
+  analogWrite(mot4, 0);
+}
