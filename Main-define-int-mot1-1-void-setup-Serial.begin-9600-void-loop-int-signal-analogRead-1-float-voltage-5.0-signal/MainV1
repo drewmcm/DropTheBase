@@ -6,7 +6,7 @@
 SoftwareSerial mySerial(5, 6); //RX is pin 8, TX is pin 9
 enes100::RfClient<SoftwareSerial> rf(&mySerial); 
 enes100::Marker marker;
-int markerNumber=106;
+int markerNumber=110;
 
 //pins
 const int mot1 = 10;
@@ -23,14 +23,14 @@ const int winch = 14;
 
 //constants and variables
 const float finalX = 2.2;
-const float finalY = 1.4;
+const float finalY = 1.2;
 const float coordMargin = .04;
 const float thetaMargin = .3;
-const int straightPWM = 50;
-const int turnPWM = 100;
+const int straightPWM = 75;
+const int turnPWM = 125;
 const int adjustPWM = 20;
-const long obstaclePing = .1;
-const long approachDist = 2.0;
+const float obstaclePing = .1;
+const float approachDist = 1.55;
 int badPingCount;
 float thetaDesired;
 long detourX1 = 0;
@@ -75,9 +75,11 @@ void setup()
 
 void loop()
 {
+  rf.sendMessage("\nEntering loop");
   int hold = mode;
   switch(hold)
   {
+    rf.sendMessage("\nEnter case");
     case 1:
       goToInitialPoint();
       break;
@@ -96,6 +98,7 @@ void loop()
 void calcInitialRoute()
 {
   rf.sendMessage("\nCalculating initial route");
+  delay(500);
   if(rf.receiveMarker(&marker, markerNumber))
   {
     if(marker.x < 1.8)
@@ -107,10 +110,12 @@ void calcInitialRoute()
       thetaDesired = 3.14;
     }
   }
+  rf.sendMessage("\nGoing to initial point");
 }
 
 void goToInitialPoint()
 {
+  rf.sendMessage("\nGoing to initial point");
   if(rf.receiveMarker(&marker, markerNumber))
   {
     if(marker.theta + thetaMargin < 0)
@@ -132,7 +137,7 @@ void goToInitialPoint()
       moveForward();
     }
  
-    else if(marker.y - coordMargin > finalY && thetaDesired == 3.14)
+    else if(marker.y - coordMargin > (finalY - .1) && thetaDesired == 3.14)
     {
       rf.sendMessage("\nY: ");
        rf.sendMessage(marker.y);
@@ -175,7 +180,7 @@ void moveToPool()
 {
   if(rf.receiveMarker(&marker, markerNumber))
   {
-      if(marker.x + coordMargin < approachDist)
+      if(marker.x - coordMargin < approachDist)
       {
          rf.sendMessage("\nX: ");
          rf.sendMessage(marker.x);
@@ -187,7 +192,7 @@ void moveToPool()
       else
       {
         rf.sendMessage("\nReached final destination");
-        mode = 4;
+        mode = 99;
       }
    }
 }
