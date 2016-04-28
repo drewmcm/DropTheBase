@@ -1,0 +1,121 @@
+#include <SoftwareSerial.h>
+#include "enes100.h"
+#include <Servo.h>
+#define SensorPin 0
+
+
+SoftwareSerial mySerial(5, 6); //RX is pin 8, TX is pin 9
+enes100::RfClient<SoftwareSerial> rf(&mySerial); 
+enes100::Marker marker;
+int markerNumber=106;
+
+//pins
+const int mot1 = 5;
+const int mot2 = 5;
+const int mot3 = 6;
+const int mot4 = 6;
+const int leftDir = 12;
+const int rightDir = 13;
+const int trig1 = 11;
+const int echo1 = 7;
+const int trig2 = 2;
+const int echo2 = 4;
+const int winch = 3;
+const int winchToggle = 8;
+const int winchPow = 3;
+
+//constants and variables
+const float finalX = 2.2;
+const float finalY = 1.4;
+const float coordMargin = .04;
+const float thetaMargin = .3;
+const int straightPWM = 50;
+const int turnPWM = 100;
+const int adjustPWM = 20;
+const long obstaclePing = .1;
+const long approachDist = 2.0;
+int badPingCount;
+float thetaDesired;
+long detourX1 = 0;
+long detourX2 = 0;
+long detourX3 = 0;
+long detourY1 = 0;
+long detourY2 = 0;
+long detourY3 = 0;
+unsigned long int avgValue;
+Servo myServo;
+float b;
+int buf[10],temp;
+int mode;
+void setup() 
+{
+  mySerial.begin(9600);
+  Serial.begin(9600);
+
+  pinMode(0,INPUT);
+  pinMode(5, INPUT); //RX for RF
+  pinMode(6, OUTPUT); //TX for RF
+  rf.resetServer();
+  rf.sendMessage("\nTeam Drop the Base is Connected\n"); //sent to mission control
+  Serial.println("Team Drop the Base is Connected"); //sent to student's serial 
+  pinMode(mot1, OUTPUT);
+  pinMode(mot2, OUTPUT);
+  pinMode(mot3, OUTPUT);
+  pinMode(mot4, OUTPUT);
+  pinMode(leftDir, OUTPUT);
+  pinMode(rightDir, OUTPUT);
+  pinMode(trig1, OUTPUT);
+  pinMode(echo1, INPUT);
+  pinMode(trig2, OUTPUT);
+  pinMode(echo2, INPUT);
+  pinMode(winch, OUTPUT);
+  pinMode(winchPow, OUTPUT);
+  digitalWrite(winchPow, LOW);
+  mode = 1;
+  thetaDesired = 0;
+  badPingCount = 0;
+  myServo.attach(winch);
+}
+
+void loop() 
+{
+  Serial.print("Ping 1: ");
+  Serial.print(ping1());
+  Serial.print(" Ping 2: ");
+  Serial.println(ping2());
+
+}
+
+long ping1()
+{
+  pinMode(trig1, OUTPUT);
+  digitalWrite(trig1, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trig1, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(trig1, LOW);
+  pinMode(echo1,INPUT);
+  long duration = pulseIn(echo2, HIGH);
+  return (microsecondsToCentimeters(duration)/100);
+}
+
+long ping2()
+{
+  pinMode(trig2, OUTPUT);
+  digitalWrite(trig2, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trig2, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(trig2, LOW);
+  pinMode(echo2,INPUT);
+  long duration = pulseIn(echo2, HIGH);
+  return (microsecondsToCentimeters(duration)/100);
+}
+
+long microsecondsToCentimeters(long microseconds)
+{
+// The speed of sound is 340 m/s or 29 microseconds per centimeter.
+// The ping travels out and back, so to find the distance of the
+// object we take half of the distance travelled.
+return microseconds / 29 / 2;
+}
