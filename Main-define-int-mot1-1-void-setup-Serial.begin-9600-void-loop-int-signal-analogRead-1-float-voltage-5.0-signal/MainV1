@@ -1,36 +1,41 @@
 #include <SoftwareSerial.h>
 #include "enes100.h"
+#include <Servo.h>
 #define SensorPin 0
 
 //This version includes basic navigation to the mission objective
-SoftwareSerial mySerial(5, 6); //RX is pin 8, TX is pin 9
+SoftwareSerial mySerial(11, 2); //RX is pin 8, TX is pin 9
 enes100::RfClient<SoftwareSerial> rf(&mySerial); 
 enes100::Marker marker;
-int markerNumber=110;
+int markerNumber=107;
+
 
 //pins
-const int mot1 = 10;
-const int mot2 = 10;
-const int mot3 = 11;
-const int mot4 = 11;
+const int mot1 = 5;
+const int mot2 = 5;
+const int mot3 = 6;
+const int mot4 = 6;
 const int leftDir = 12;
 const int rightDir = 13;
-const int trig1 = 10;
-const int echo1 = 11;
-const int trig2 = 0;
-const int echo2 = 0;
-const int winch = 14;
+const int trig1 = 11;
+const int echo1 = 7;
+const int trig2 = 2;
+const int echo2 = 4;
+const int winch = 3;
+const int winchToggle = 8;
+const int winchPow = 3;
+const int phPin = A0;
 
 //constants and variables
 const float finalX = 2.2;
-const float finalY = 1.2;
+const float finalY = 1.4;
 const float coordMargin = .04;
 const float thetaMargin = .3;
 const int straightPWM = 75;
-const int turnPWM = 125;
+const int turnPWM = 100;
 const int adjustPWM = 20;
-const float obstaclePing = .1;
-const float approachDist = 1.55;
+const long obstaclePing = .1;
+const long approachDist = 1.75;
 int badPingCount;
 float thetaDesired;
 long detourX1 = 0;
@@ -40,6 +45,7 @@ long detourY1 = 0;
 long detourY2 = 0;
 long detourY3 = 0;
 unsigned long int avgValue;
+Servo myServo;
 float b;
 int buf[10],temp;
 int mode;
@@ -50,8 +56,8 @@ void setup()
   Serial.begin(9600);
 
   pinMode(0,INPUT);
-  pinMode(5, INPUT); //RX for RF
-  pinMode(6, OUTPUT); //TX for RF
+  pinMode(11, INPUT); //RX for RF
+  pinMode(2, OUTPUT); //TX for RF
   rf.resetServer();
   rf.sendMessage("\nTeam Drop the Base is Connected\n"); //sent to mission control
   Serial.println("Team Drop the Base is Connected"); //sent to student's serial 
@@ -66,20 +72,21 @@ void setup()
   pinMode(trig2, OUTPUT);
   pinMode(echo2, INPUT);
   pinMode(winch, OUTPUT);
+  pinMode(winchPow, OUTPUT);
+  digitalWrite(winchPow, LOW);
   mode = 1;
   thetaDesired = 0;
   badPingCount = 0;
+  myServo.attach(winch);
   
   calcInitialRoute();
 }
 
 void loop()
 {
-  rf.sendMessage("\nEntering loop");
   int hold = mode;
   switch(hold)
   {
-    rf.sendMessage("\nEnter case");
     case 1:
       goToInitialPoint();
       break;
